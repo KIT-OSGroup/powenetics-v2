@@ -258,11 +258,22 @@ impl Powenetics {
 
         let bytes_to_read = self.port.bytes_to_read()?;
         if bytes_to_read != 0 {
-            let mut buf = vec![0; bytes_to_read as usize];
+            // Make sure we only read whole packets here
+            let mut buf = vec![
+                0;
+                (bytes_to_read as usize) / POWENETICS_MEASUREMENT_PACKET_SIZE
+                    * POWENETICS_MEASUREMENT_PACKET_SIZE
+            ];
 
             self.port.read_exact(&mut buf)?;
 
-            if !String::from_utf8_lossy(&buf).starts_with(POWENETICS_READY_MESSAGE) {
+            // Upon plugging in, the PMD will send its ready message, however, there is no way to
+            // explicitly stop the measurement other than physically unplugging the device. If the
+            // measurement was aborted and is now restarted without replugging, we will not receive
+            // a ready message but a continuing stream of measurement packets.
+            if !String::from_utf8_lossy(&buf).starts_with(POWENETICS_READY_MESSAGE)
+                && buf[..2] != [0xCA, 0xAC]
+            {
                 return Err(PoweneticsError::Protocol {
                     message: format!(
                         "expected \"{}\", received {:?}",
@@ -272,6 +283,7 @@ impl Powenetics {
             }
         }
 
+        // The PMD does not care about further messages even if the measurement is already running
         self.port.write_all(&[0xCA, 0xAC, 0xBD, 0x90])?;
         self.port.flush()?;
 
@@ -286,6 +298,7 @@ impl Powenetics {
             return Err(PoweneticsError::NoSubscribers);
         }
 
+        let mut first_sequence = true;
         let mut sequence = 1;
 
         loop {
@@ -311,12 +324,17 @@ impl Powenetics {
             })?);
 
             if sequence != sequence_received {
-                return Err(PoweneticsError::Protocol {
-                    message: format!(
-                        "expected sequence {}, received {}",
-                        sequence, sequence_received
-                    ),
-                });
+                if first_sequence {
+                    sequence = sequence_received;
+                    first_sequence = false;
+                } else {
+                    return Err(PoweneticsError::Protocol {
+                        message: format!(
+                            "expected sequence {}, received {}",
+                            sequence, sequence_received
+                        ),
+                    });
+                }
             }
 
             (sequence, _) = sequence.overflowing_add(1);
