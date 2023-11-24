@@ -20,19 +20,19 @@ pub const POWENETICS_USB_VID: u16 = 0x4d8;
 pub const POWENETICS_USB_PID: u16 = 0xa;
 
 pub const POWENETICS_CHANNELS: [&str; 13] = [
-    "3.3V",
-    "5Vsb",
-    "12V",
-    "5V",
-    "12V1",
-    "12Vsb",
-    "12V3",
-    "12V2",
-    "12V6",
-    "12V5",
-    "3.3V OPTI",
-    "12V OPTI",
-    "12V4",
+    "ATX 3.3V",
+    "ATX 5V Standby",
+    "ATX 12V",
+    "ATX 5V",
+    "EPS 12V #1",
+    "ATX12VO 12V Standby",
+    "EPS 12V #3",
+    "EPS 12V #2",
+    "PCIe 12V #3",
+    "PCIe 12V #2",
+    "PCIe Slot 3.3V",
+    "PCIe Slot 12V",
+    "PCIe 12V #1",
 ];
 
 pub trait PoweneticsSubscriber {
