@@ -106,7 +106,7 @@ impl Channel {
         if self.last_update != time::SystemTime::UNIX_EPOCH {
             let duration = time.duration_since(self.last_update)?;
 
-            self.energy += (self.power() as u64) * (duration.as_millis() as u64);
+            self.energy += (self.power() as u64) * (duration.as_micros() as u64) / 1000;
         }
 
         self.last_update = time;
