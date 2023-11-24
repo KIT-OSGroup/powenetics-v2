@@ -7,8 +7,6 @@ use std::{io, thread, time};
 use serialport::SerialPort;
 use thiserror::Error;
 
-use crate::PoweneticsError::Protocol;
-
 const POWENETICS_BAUD_RATE: u32 = 921600;
 const POWENETICS_DATA_BITS: serialport::DataBits = serialport::DataBits::Eight;
 const POWENETICS_SERIAL_PARITY: serialport::Parity = serialport::Parity::None;
@@ -210,7 +208,7 @@ impl Powenetics {
                 if buf == [0xCA, 0xAC] {
                     return Err(PoweneticsError::NoPowerOnChannel);
                 } else {
-                    return Err(Protocol {
+                    return Err(PoweneticsError::Protocol {
                         message: format!(
                             "expected [0xCA, 0xAC], received [{:#04X}, {:#04X}]",
                             buf[0], buf[1]
@@ -218,7 +216,7 @@ impl Powenetics {
                     });
                 }
             } else {
-                return Err(Protocol {
+                return Err(PoweneticsError::Protocol {
                     message: format!("expected 2 bytes, received {}", bytes_to_read),
                 });
             }
@@ -265,7 +263,7 @@ impl Powenetics {
             self.port.read_exact(&mut buf)?;
 
             if !String::from_utf8_lossy(&buf).starts_with(POWENETICS_READY_MESSAGE) {
-                return Err(Protocol {
+                return Err(PoweneticsError::Protocol {
                     message: format!(
                         "expected \"{}\", received {:?}",
                         POWENETICS_READY_MESSAGE, buf
@@ -297,7 +295,7 @@ impl Powenetics {
             self.data.last_update = time::SystemTime::now();
 
             if buf[..2] != [0xCA, 0xAC] {
-                return Err(Protocol {
+                return Err(PoweneticsError::Protocol {
                     message: format!(
                         "expected [0xCA, 0xAC], received [{:#04X}, {:#04X}]",
                         buf[0], buf[1]
@@ -313,7 +311,7 @@ impl Powenetics {
             })?);
 
             if sequence != sequence_received {
-                return Err(Protocol {
+                return Err(PoweneticsError::Protocol {
                     message: format!(
                         "expected sequence {}, received {}",
                         sequence, sequence_received
