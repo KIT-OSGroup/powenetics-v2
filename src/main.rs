@@ -8,10 +8,13 @@ use powenetics_v2::{POWENETICS_USB_PID, POWENETICS_USB_VID};
 
 mod csv;
 
+/// Powenetics v2 command line tool
 #[derive(Parser)]
 struct Cli {
-    #[arg(long)]
+    /// Write measurement data to CSV file
+    #[arg(long, value_name = "path")]
     csv: Option<PathBuf>,
+    /// Serial port name or path (run without arguments for list of available ports)
     port: Option<String>,
 }
 
@@ -19,6 +22,8 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     if args.port.is_none() {
+        println!("Usage: see --help");
+
         println!("Available serial ports:");
 
         let ports = serialport::available_ports()?;
