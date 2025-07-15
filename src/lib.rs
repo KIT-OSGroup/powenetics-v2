@@ -66,6 +66,7 @@ pub enum PoweneticsError {
     Protocol { message: String },
 }
 
+#[derive(Clone, Debug)]
 pub struct Channel {
     name: String,
     id: u8,
@@ -123,6 +124,7 @@ pub struct Powenetics {
     started: bool,
 }
 
+#[derive(Clone, Debug)]
 pub struct PoweneticsData {
     channels: [Channel; POWENETICS_CHANNELS.len()],
     last_update: time::SystemTime,

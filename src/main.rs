@@ -14,6 +14,9 @@ struct Cli {
     /// Write measurement data to CSV file
     #[arg(long, value_name = "path")]
     csv: Option<PathBuf>,
+    /// Provide CSV data over TCP
+    #[arg(long, value_name = "address")]
+    csv_server: Option<String>,
     /// Serial port name or path (run without arguments for list of available ports)
     port: Option<String>,
 }
@@ -56,8 +59,12 @@ fn main() -> Result<()> {
 
     let mut p = powenetics_v2::new(&*args.port.unwrap())?;
 
-    if args.csv.is_some() {
-        csv::subscribe_csv(&mut p, &args.csv.unwrap())?;
+    if let Some(csv) = args.csv {
+        csv::subscribe_csv(&mut p, &csv)?;
+    }
+
+    if let Some(addr) = args.csv_server {
+        csv::subscribe_csv_server(&mut p, addr)?;
     }
 
     p.start_measurement()?;

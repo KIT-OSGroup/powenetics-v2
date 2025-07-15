@@ -7,6 +7,9 @@ use thiserror::Error;
 
 use powenetics_v2::{Powenetics, PoweneticsData, PoweneticsSubscriber, POWENETICS_CHANNELS};
 
+mod server;
+pub use server::subscribe_csv_server;
+
 #[derive(Error, Debug)]
 pub enum CsvError {
     #[error("I/O error")]
@@ -17,7 +20,7 @@ pub enum CsvError {
     CsvExists,
 }
 
-struct CsvSubscriber<W: io::Write> {
+pub struct CsvSubscriber<W: io::Write> {
     csv: csv::Writer<W>,
 }
 

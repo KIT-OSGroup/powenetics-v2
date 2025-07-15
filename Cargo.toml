@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Yussuf Khalil <yussuf.khalil@kit.edu>"]
 
+[dependencies]
+smol = "2.0"
+async-broadcast = "0.7"
+
 [dependencies.clap]
 version = "4.4"
 features = ["derive"]
