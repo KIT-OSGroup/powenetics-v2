@@ -1,12 +1,11 @@
 use std::fmt::Debug;
-use std::fs::File;
 use std::path::Path;
 use std::time;
 use std::{fs, io};
 
 use thiserror::Error;
 
-use powenetics_v2::{Powenetics, PoweneticsData, PoweneticsSubscriber};
+use powenetics_v2::{Powenetics, PoweneticsData, PoweneticsSubscriber, POWENETICS_CHANNELS};
 
 #[derive(Error, Debug)]
 pub enum CsvError {
@@ -18,11 +17,26 @@ pub enum CsvError {
     CsvExists,
 }
 
-struct CsvSubscriber {
-    csv: csv::Writer<File>,
+struct CsvSubscriber<W: io::Write> {
+    csv: csv::Writer<W>,
 }
 
-impl PoweneticsSubscriber for CsvSubscriber {
+impl<W: io::Write> CsvSubscriber<W> {
+    fn write_header(&mut self) -> Result<(), CsvError> {
+        self.csv.write_field("Timestamp")?;
+
+        for ch in POWENETICS_CHANNELS {
+            self.csv.write_field(format!("{} Voltage (mV)", ch))?;
+            self.csv.write_field(format!("{} Current (mA)", ch))?;
+            self.csv.write_field(format!("{} Energy (nJ)", ch))?;
+        }
+
+        self.csv.write_record(None::<&[u8]>)?;
+        Ok(())
+    }
+}
+
+impl<W: io::Write> PoweneticsSubscriber for CsvSubscriber<W> {
     fn update(&mut self, p: &PoweneticsData) -> anyhow::Result<bool> {
         self.csv.write_field(format!(
             "{:.5}",
@@ -51,16 +65,7 @@ pub(crate) fn subscribe_csv(p: &mut Powenetics, path: &Path) -> Result<(), CsvEr
     let mut sub = CsvSubscriber {
         csv: csv::Writer::from_path(path)?,
     };
-
-    sub.csv.write_field("Timestamp")?;
-
-    for ch in p.data().channels() {
-        sub.csv.write_field(format!("{} Voltage (mV)", ch.name()))?;
-        sub.csv.write_field(format!("{} Current (mA)", ch.name()))?;
-        sub.csv.write_field(format!("{} Energy (nJ)", ch.name()))?;
-    }
-
-    sub.csv.write_record(None::<&[u8]>)?;
+    sub.write_header()?;
 
     p.subscribe(Box::new(sub));
 
