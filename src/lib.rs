@@ -384,3 +384,47 @@ impl Powenetics {
         &self.data
     }
 }
+
+/// A subscriber that downsamples the measurement data by taking the average of `window_size` measurement samples.
+pub struct AveragingSubscriber<S: PoweneticsSubscriber> {
+    window_size: usize,
+    window: Vec<PoweneticsData>,
+    sub: S,
+}
+
+impl<S: PoweneticsSubscriber> AveragingSubscriber<S> {
+    pub fn new(sub: S, window_size: usize) -> AveragingSubscriber<S> {
+        assert!(window_size > 0);
+        AveragingSubscriber {
+            window_size,
+            window: Vec::with_capacity(window_size),
+            sub,
+        }
+    }
+}
+
+impl<S: PoweneticsSubscriber> PoweneticsSubscriber for AveragingSubscriber<S> {
+    fn update(&mut self, p: &PoweneticsData) -> anyhow::Result<bool> {
+        if self.window.len() == self.window_size - 1 {
+            let mut sums = p
+                .channels
+                .clone()
+                .map(|chan| (chan.voltage as u64, chan.current as u64));
+            for item in self.window.drain(..) {
+                for ((v, i), item_chan) in sums.iter_mut().zip(item.channels.iter()) {
+                    *v += item_chan.voltage as u64;
+                    *i += item_chan.current as u64;
+                }
+            }
+            let mut avg = p.clone();
+            for (chan, (v, i)) in avg.channels.iter_mut().zip(sums.iter()) {
+                chan.voltage = (v / self.window_size as u64).try_into().unwrap();
+                chan.current = (i / self.window_size as u64).try_into().unwrap();
+            }
+            return self.sub.update(&avg);
+        } else {
+            self.window.push(p.clone());
+        }
+        Ok(false)
+    }
+}

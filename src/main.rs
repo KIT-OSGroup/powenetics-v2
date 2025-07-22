@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use std::{fs::File, path::PathBuf};
 
 use anyhow::Result;
 use clap::Parser;
 use serialport::SerialPortType;
 
-use powenetics_v2::{POWENETICS_USB_PID, POWENETICS_USB_VID};
+use powenetics_v2::{AveragingSubscriber, POWENETICS_USB_PID, POWENETICS_USB_VID};
 
 mod csv;
 
@@ -19,6 +19,9 @@ struct Cli {
     csv_server: Option<String>,
     /// Serial port name or path (run without arguments for list of available ports)
     port: Option<String>,
+    /// Downsample by taking the average of N samples
+    #[arg(long, value_name = "N")]
+    average: Option<usize>,
 }
 
 fn main() -> Result<()> {
@@ -59,12 +62,27 @@ fn main() -> Result<()> {
 
     let mut p = powenetics_v2::new(&*args.port.unwrap())?;
 
+    macro_rules! subscribe {
+        ($sub:expr) => {
+            p.subscribe(if let Some(window_size) = args.average {
+                Box::new(AveragingSubscriber::new($sub, window_size))
+            } else {
+                Box::new($sub)
+            })
+        };
+    }
+
+    if let Some(0) = args.average {
+        eprintln!("Error: --average window cannot be 0");
+        std::process::exit(1);
+    }
+
     if let Some(csv) = args.csv {
-        csv::subscribe_csv(&mut p, &csv)?;
+        subscribe!(csv::CsvSubscriber::<File>::from_path(&csv)?);
     }
 
     if let Some(addr) = args.csv_server {
-        csv::subscribe_csv_server(&mut p, addr)?;
+        subscribe!(csv::ServerSubscriber::new(addr)?);
     }
 
     p.start_measurement()?;

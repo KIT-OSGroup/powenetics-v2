@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::bail;
 use async_broadcast::{broadcast, Receiver, RecvError, Sender};
-use powenetics_v2::{Powenetics, PoweneticsData, PoweneticsSubscriber};
+use powenetics_v2::{PoweneticsData, PoweneticsSubscriber};
 use smol::Async;
 
 use super::{CsvError, CsvSubscriber};
@@ -58,8 +58,19 @@ async fn csv_server(listener: TcpListener, recv: Receiver<PoweneticsData>) -> io
     }
 }
 
-struct ServerSubscriber {
+pub struct ServerSubscriber {
     send: Sender<PoweneticsData>,
+}
+
+impl ServerSubscriber {
+    pub fn new<A: ToSocketAddrs>(addr: A) -> Result<Self, CsvError> {
+        let listener = TcpListener::bind(addr)?;
+        let (mut send, mut recv) = broadcast::<PoweneticsData>(1);
+        recv.set_overflow(true);
+        send.set_await_active(false);
+        smol::spawn(csv_server(listener, recv)).detach();
+        Ok(ServerSubscriber { send })
+    }
 }
 
 impl PoweneticsSubscriber for ServerSubscriber {
@@ -68,14 +79,4 @@ impl PoweneticsSubscriber for ServerSubscriber {
         let _ = self.send.broadcast_blocking(p.clone());
         Ok(false)
     }
-}
-
-pub fn subscribe_csv_server<A: ToSocketAddrs>(p: &mut Powenetics, addr: A) -> Result<(), CsvError> {
-    let listener = TcpListener::bind(addr)?;
-    let (mut send, mut recv) = broadcast::<PoweneticsData>(1);
-    recv.set_overflow(true);
-    send.set_await_active(false);
-    smol::spawn(csv_server(listener, recv)).detach();
-    p.subscribe(Box::new(ServerSubscriber { send }));
-    Ok(())
 }

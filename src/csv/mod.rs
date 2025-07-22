@@ -1,14 +1,15 @@
 use std::fmt::Debug;
+use std::fs::File;
 use std::path::Path;
 use std::time;
 use std::{fs, io};
 
 use thiserror::Error;
 
-use powenetics_v2::{Powenetics, PoweneticsData, PoweneticsSubscriber, POWENETICS_CHANNELS};
+use powenetics_v2::{PoweneticsData, PoweneticsSubscriber, POWENETICS_CHANNELS};
 
 mod server;
-pub use server::subscribe_csv_server;
+pub use server::ServerSubscriber;
 
 #[derive(Error, Debug)]
 pub enum CsvError {
@@ -22,6 +23,20 @@ pub enum CsvError {
 
 pub struct CsvSubscriber<W: io::Write> {
     csv: csv::Writer<W>,
+}
+
+impl CsvSubscriber<File> {
+    pub fn from_path(path: &Path) -> Result<CsvSubscriber<File>, CsvError> {
+        if path.try_exists()? && fs::metadata(path)?.len() != 0 {
+            return Err(CsvError::CsvExists);
+        }
+
+        let mut sub = CsvSubscriber {
+            csv: csv::Writer::from_path(path)?,
+        };
+        sub.write_header()?;
+        Ok(sub)
+    }
 }
 
 impl<W: io::Write> CsvSubscriber<W> {
@@ -58,19 +73,4 @@ impl<W: io::Write> PoweneticsSubscriber for CsvSubscriber<W> {
 
         Ok(false)
     }
-}
-
-pub(crate) fn subscribe_csv(p: &mut Powenetics, path: &Path) -> Result<(), CsvError> {
-    if path.try_exists()? && fs::metadata(path)?.len() != 0 {
-        return Err(CsvError::CsvExists);
-    }
-
-    let mut sub = CsvSubscriber {
-        csv: csv::Writer::from_path(path)?,
-    };
-    sub.write_header()?;
-
-    p.subscribe(Box::new(sub));
-
-    Ok(())
 }
