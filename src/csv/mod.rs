@@ -70,6 +70,7 @@ impl<W: io::Write> PoweneticsSubscriber for CsvSubscriber<W> {
         }
 
         self.csv.write_record(None::<&[u8]>)?;
+        self.csv.flush()?;
 
         Ok(false)
     }
