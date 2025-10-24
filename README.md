@@ -27,13 +27,25 @@ Arguments:
   [PORT]  Serial port name or path (run without arguments for list of available ports)
 
 Options:
-      --csv <path>  Write measurement data to CSV file
-  -h, --help        Print help
+      --csv <path>            Write measurement data to CSV file
+      --csv-server <address>  Provide CSV data over TCP
+      --average <N>           Downsample by taking the average of N samples
+  -h, --help                  Print help
+```
+
+With `--csv-server`, you can receive the measurement data from another system, for example:
+
+```sh
+# on the host with the Powenetics device
+powenetics-v2 --csv-server '[::]:1234' /dev/ttyACM0
+
+# on the client
+nc powenetics-host 1234
 ```
 
 ## Output
 
-Currently only CSV file output is supported. 
+Currently only CSV output is supported, either to a file or via TCP. 
 Output consists of voltage (mV), current (mA), and accumulated energy (nJ) for each channel. 
 Powenetics v2 provides ~1000 updates per second.
 Measurement data is provided for the following channels (in this order):
