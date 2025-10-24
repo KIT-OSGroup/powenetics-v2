@@ -6,7 +6,10 @@ use std::{fs, io};
 
 use thiserror::Error;
 
-use powenetics_v2::{Powenetics, PoweneticsData, PoweneticsSubscriber};
+use powenetics_v2::{PoweneticsData, PoweneticsSubscriber, POWENETICS_CHANNELS};
+
+mod server;
+pub use server::ServerSubscriber;
 
 #[derive(Error, Debug)]
 pub enum CsvError {
@@ -18,11 +21,40 @@ pub enum CsvError {
     CsvExists,
 }
 
-struct CsvSubscriber {
-    csv: csv::Writer<File>,
+pub struct CsvSubscriber<W: io::Write> {
+    csv: csv::Writer<W>,
 }
 
-impl PoweneticsSubscriber for CsvSubscriber {
+impl CsvSubscriber<File> {
+    pub fn from_path(path: &Path) -> Result<CsvSubscriber<File>, CsvError> {
+        if path.try_exists()? && fs::metadata(path)?.len() != 0 {
+            return Err(CsvError::CsvExists);
+        }
+
+        let mut sub = CsvSubscriber {
+            csv: csv::Writer::from_path(path)?,
+        };
+        sub.write_header()?;
+        Ok(sub)
+    }
+}
+
+impl<W: io::Write> CsvSubscriber<W> {
+    fn write_header(&mut self) -> Result<(), CsvError> {
+        self.csv.write_field("Timestamp")?;
+
+        for ch in POWENETICS_CHANNELS {
+            self.csv.write_field(format!("{} Voltage (mV)", ch))?;
+            self.csv.write_field(format!("{} Current (mA)", ch))?;
+            self.csv.write_field(format!("{} Energy (nJ)", ch))?;
+        }
+
+        self.csv.write_record(None::<&[u8]>)?;
+        Ok(())
+    }
+}
+
+impl<W: io::Write> PoweneticsSubscriber for CsvSubscriber<W> {
     fn update(&mut self, p: &PoweneticsData) -> anyhow::Result<bool> {
         self.csv.write_field(format!(
             "{:.5}",
@@ -38,31 +70,8 @@ impl PoweneticsSubscriber for CsvSubscriber {
         }
 
         self.csv.write_record(None::<&[u8]>)?;
+        self.csv.flush()?;
 
         Ok(false)
     }
-}
-
-pub(crate) fn subscribe_csv(p: &mut Powenetics, path: &Path) -> Result<(), CsvError> {
-    if path.try_exists()? && fs::metadata(path)?.len() != 0 {
-        return Err(CsvError::CsvExists);
-    }
-
-    let mut sub = CsvSubscriber {
-        csv: csv::Writer::from_path(path)?,
-    };
-
-    sub.csv.write_field("Timestamp")?;
-
-    for ch in p.data().channels() {
-        sub.csv.write_field(format!("{} Voltage (mV)", ch.name()))?;
-        sub.csv.write_field(format!("{} Current (mA)", ch.name()))?;
-        sub.csv.write_field(format!("{} Energy (nJ)", ch.name()))?;
-    }
-
-    sub.csv.write_record(None::<&[u8]>)?;
-
-    p.subscribe(Box::new(sub));
-
-    Ok(())
 }
